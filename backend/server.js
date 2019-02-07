@@ -2,27 +2,84 @@ const express = require("express");
 const app = express();
 const MongoClient = require("mongodb").MongoClient;
 const bodyParser = require("body-parser");
-//PASTE YOUR MLAB URI STRING HERE
-const url = "";
+
+const url = "mongodb://admin:password1@ds225375.mlab.com:25375/mymongodb";
+const port = 4000;
+let dbClient;
+
+MongoClient.connect(url, { useNewUrlParser: true })
+.then(client => {
+  dbClient = client;
+  const db = client.db('mymongodb');
+  const collection = db.collection('collect');
+  app.listen(port, () => console.info(`REST API running on port ${port}`));
+  app.locals.collection = collection;
+}).catch(error => console.error(error));
+
+// listen for the signal interruption (ctrl-c)
+process.on('SIGINT', () => {
+  dbClient.close();
+  process.exit();
+});
 
 app.use(bodyParser.raw({ type: "*/*" }));
 
-//Here we will insert new posts into our database
-//when we send back our response, we can send it
-//in this format:
-//{status: true, message:'Success!'}
-app.post("/postReview", (req, res) => {
+app.post("/postReview", (req, res)=>{
   let review = JSON.parse(req.body);
+  const collection = req.app.locals.collection;
+  collection.insertOne(review, (err, result)=>{
+    if(err) throw err;
+    console.log("success");
+    let response = {
+      status:true,
+      message: "Document successfully inserted"
+    }
+    res.send(JSON.stringify(response))
+  });
 });
 
-//Here will get all reviews to display them on
-//the frontend. We are going to respond with
-//an object in this format:
-//{status:true, reviews:[array of reviews]}
 app.get("/getReviews", (req, res) => {
-  
+  const collection = req.app.locals.collection;
+  collection.find({}).toArray((err, result)=>{
+    if(err) throw err;
+    console.group(result);
+    let response = {
+      status: true,
+      reviews: result
+    }
+    res.send(JSON.stringify(response))
+  });
 });
 
-app.listen(4000, () => {
-  console.log("listening on port 4000");
+app.post("/searchByName", (req, res) => {
+  let searchName = JSON.parse(req.body);
+  let query = {
+    username: searchName
+  }
+  console.log(query);
+  const collection = req.app.locals.collection;
+  collection.find(query).toArray((err, result)=>{
+    if(err) throw err;
+    let response = {
+      status:true,
+      reviews: result
+    }
+    console.log(response);
+    res.send(JSON.stringify(response))
+  });
+});
+
+app.post("/searchByDesc", (req, res) => {
+  let searchWord = JSON.parse(req.body);
+  let regexSearch = new RegExp(searchWord)
+  const collection = req.app.locals.collection;
+  collection.find({"review" : {$regex : regexSearch}}).toArray((err, result)=>{
+    if(err) throw err;
+    let response = {
+      status:true,
+      reviews: result
+    }
+    console.log(response);
+    res.send(JSON.stringify(response))
+  });
 });

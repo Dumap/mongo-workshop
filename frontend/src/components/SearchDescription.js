@@ -17,11 +17,18 @@ class SearchDescription extends Component {
   handleSubmit = e => {
     e.preventDefault();
     let search = this.state.searchInput;
-    //write a fetch here to
-    //an endpoint that will query
-    //your database
-
-    //fetch goes above
+    fetch("/searchByDesc", {
+      method: "POST",
+      body: JSON.stringify(search)
+    }).then(response => response.text())
+    .then(response => {
+      let parsedResponse = JSON.parse(response);
+      if (parsedResponse.status) {
+        this.setState({ reviews: parsedResponse.reviews });
+        console.log(parsedResponse.message);
+      }
+    })
+    .catch(err => console.log(err));
     this.setState({ searchInput: "" });
   };
   renderReviews = review => {
